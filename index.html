@@ -87,7 +87,8 @@ const TABLAS = {
   sims: {fichero:'im-sims.json', filtros:false, cols:[
     {k:'numero', t:'Número'}, {k:'operador', t:'Operador'}, {k:'titular', t:'Titular'}, {k:'cuenta', t:'Cuenta (SINPE Móvil)'},
     {k:'whatsapp', t:'WhatsApp en esa SIM'}, {k:'telefono', t:'En qué teléfono está'}, {k:'tiene', t:'Quién la tiene'},
-    {k:'activa', t:'Activa', sino:true}, {k:'notas', t:'Notas'}
+    {k:'activa', t:'Activa', sino:true}, {k:'pin', t:'PIN'}, {k:'puk', t:'PUK'}, {k:'barras', t:'Código de barras'},
+    {k:'notas', t:'Notas'}
   ]}
 };
 const TAB = TABLAS[location.hash.slice(1)] ? location.hash.slice(1) : 'grupos';

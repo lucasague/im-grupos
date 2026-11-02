@@ -86,7 +86,7 @@ const TABLAS = {
   ]},
   sims: {fichero:'im-sims.json', filtros:false, cols:[
     {k:'numero', t:'Número'}, {k:'operador', t:'Operador'}, {k:'titular', t:'Titular'}, {k:'cuenta', t:'Cuenta (SINPE Móvil)'},
-    {k:'whatsapp', t:'WhatsApp en esa SIM'}, {k:'telefono', t:'En qué teléfono está'}, {k:'tiene', t:'Quién la tiene'},
+    {k:'whatsapp', t:'WhatsApp en esa SIM'}, {k:'telefono', t:'En qué teléfono está'}, {k:'tiene', t:'Quién la tiene'}, {k:'facturacion', t:'Facturación', opciones:['', 'Factura', 'Negro']},
     {k:'activa', t:'Activa', sino:true}, {k:'pin', t:'PIN'}, {k:'puk', t:'PUK'}, {k:'barras', t:'Código de barras'}, {k:'rotulador', t:'Rotulador'},
     {k:'notas', t:'Notas'}
   ]}
@@ -183,8 +183,8 @@ function pintar(){
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#cuerpo')) return;
   pintarCabecera();
   const filas = visibles();
-  $('#cuerpo').innerHTML = filas.map(r => `<tr data-id="${esc(r.id)}">` + COLS.map(c => c.sino
-    ? `<td><select data-k="${c.k}" class="${r[c.k] === 'sí' ? 'si' : r[c.k] === 'no' ? 'no' : ''}">${SINO.map(v => `<option${v === (r[c.k] || '') ? ' selected' : ''}>${v}</option>`).join('')}</select></td>`
+  $('#cuerpo').innerHTML = filas.map(r => `<tr data-id="${esc(r.id)}">` + COLS.map(c => (c.sino || c.opciones)
+    ? `<td><select data-k="${c.k}" class="${r[c.k] === 'sí' ? 'si' : r[c.k] === 'no' ? 'no' : ''}">${(c.opciones || SINO).map(v => `<option${v === (r[c.k] || '') ? ' selected' : ''}>${v}</option>`).join('')}</select></td>`
     : `<td class="${c.num ? 'num' : ''}"><div contenteditable="plaintext-only" data-k="${c.k}">${esc(r[c.k])}</div></td>`).join('')
     + `<td class="borrar"><button title="Borrar fila" data-borrar>✕</button></td></tr>`).join('');
   const t = estado.filas;

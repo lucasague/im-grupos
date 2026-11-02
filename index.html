@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Grupos IM · WhatsApp</title>
+<style>
+  :root { --fondo:#f6f5f2; --tarjeta:#fff; --texto:#1d1d1f; --suave:#6b6b70; --linea:#e3e1dc; --acento:#b5462b; --si:#2e7d4f; --no:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --fondo:#17171a; --tarjeta:#202024; --texto:#ececef; --suave:#9a9aa2; --linea:#33333a; --acento:#e07a5f; --si:#6cc590; --no:#ef8a80; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--fondo); color:var(--texto); }
+  header { position:sticky; top:0; z-index:5; background:var(--fondo); padding:12px 16px 8px; border-bottom:1px solid var(--linea); }
+  h1 { font-size:18px; margin:0 0 6px; }
+  .barra { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input[type=search] { flex:1 1 220px; padding:7px 10px; border:1px solid var(--linea); border-radius:8px; background:var(--tarjeta); color:var(--texto); font:inherit; }
+  button, select.filtro { padding:7px 12px; border:1px solid var(--linea); border-radius:8px; background:var(--tarjeta); color:var(--texto); font:inherit; cursor:pointer; }
+  button.primario { background:var(--acento); color:#fff; border-color:var(--acento); }
+  #nube { color:var(--suave); font-size:13px; cursor:pointer; white-space:nowrap; }
+  .resumen { color:var(--suave); font-size:13px; margin-top:6px; }
+  .resumen b { color:var(--texto); }
+  main { padding:8px 16px 40px; overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:1100px; background:var(--tarjeta); border-radius:10px; overflow:hidden; }
+  th, td { border-bottom:1px solid var(--linea); padding:0; text-align:left; vertical-align:top; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--suave); padding:8px; cursor:pointer; user-select:none; white-space:nowrap; background:var(--tarjeta); position:sticky; top:0; }
+  th.orden::after { content:" ▾"; } th.orden.inv::after { content:" ▴"; }
+  td [contenteditable] { padding:7px 8px; min-height:32px; outline:none; }
+  td [contenteditable]:focus { background:color-mix(in srgb, var(--acento) 10%, transparent); box-shadow:inset 0 0 0 2px var(--acento); }
+  td select { border:0; background:transparent; color:inherit; font:inherit; padding:7px 4px; width:100%; cursor:pointer; }
+  td.num [contenteditable] { text-align:right; font-variant-numeric:tabular-nums; }
+  .si { color:var(--si); font-weight:600; } .no { color:var(--no); }
+  tr.cambiada td:first-child { box-shadow:inset 3px 0 0 var(--acento); }
+  td.borrar { width:34px; text-align:center; }
+  td.borrar button { border:0; background:none; color:var(--suave); padding:6px; }
+  td.borrar button:hover { color:var(--no); }
+  .velo { position:fixed; inset:0; background:#0007; display:none; align-items:center; justify-content:center; z-index:10; }
+  .velo.abierto { display:flex; }
+  .caja { background:var(--tarjeta); padding:20px; border-radius:12px; max-width:420px; width:92%; }
+  .caja input { width:100%; padding:8px; margin:10px 0; border:1px solid var(--linea); border-radius:8px; background:var(--fondo); color:var(--texto); font:inherit; }
+  .caja p { color:var(--suave); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Grupos de Ignis Mundi y sus WhatsApp</h1>
+  <div class="barra">
+    <input type="search" id="buscar" placeholder="Buscar programa, grupo, WhatsApp, notas…">
+    <select class="filtro" id="filtro">
+      <option value="">Todos</option>
+      <option value="sin">Sin grupo de WhatsApp</option>
+      <option value="con">Con grupo de WhatsApp</option>
+      <option value="tu">En los que estás tú</option>
+      <option value="sinenlace">Vinculados sin enlace</option>
+      <option value="pend">Con pendientes por invitar</option>
+    </select>
+    <button class="primario" id="nueva">+ Fila</button>
+    <span id="nube">☁ …</span>
+  </div>
+  <div class="resumen" id="resumen"></div>
+</header>
+<main>
+  <table>
+    <thead><tr id="cabecera"></tr></thead>
+    <tbody id="cuerpo"></tbody>
+  </table>
+</main>
+<div class="velo" id="velo"><div class="caja">
+  <b>Conectar con GitHub</b>
+  <p>Los datos viven en el repo privado <b>agenda-datos</b> (fichero im-grupos.json). Usa el mismo token que la agenda; si ya la tienes abierta en este navegador, se coge solo.</p>
+  <input type="password" id="token" placeholder="github_pat_…">
+  <div class="barra"><button class="primario" id="guardarToken">Conectar</button><button id="cerrarVelo">Cancelar</button></div>
+</div></div>
+<script>
+const $ = s => document.querySelector(s);
+const API = 'https://api.github.com/repos/lucasague/agenda-datos/contents/im-grupos.json';
+const CLAVE_TOKEN = 'agenda-token';      // el mismo de la agenda: mismo origen lucasague.github.io
+const CLAVE = 'im-grupos-v1', CLAVE_PEND = 'im-grupos-pendiente';
+const SINO = ['', 'sí', 'no'];
+const COLS = [
+  {k:'programa', t:'Programa'}, {k:'grupo', t:'Grupo'}, {k:'horario', t:'Horario'},
+  {k:'inscritos', t:'Inscritos', num:true}, {k:'whatsapp', t:'Grupo de WhatsApp'},
+  {k:'vinculado', t:'Vinculado en la app', sino:true}, {k:'enlace', t:'Enlace', sino:true},
+  {k:'pendientes', t:'Por invitar', num:true}, {k:'tu', t:'Estás tú', sino:true},
+  {k:'responsable', t:'Lo lleva'}, {k:'notas', t:'Notas'}
+];
+let token = ''; try { token = localStorage.getItem(CLAVE_TOKEN) || ''; } catch(e){}
+let estado = cargar(), pendiente = leerPend(), orden = {k:'programa', inv:false};
+let sincronizando = false, otraVez = false, temporizador = null;
+
+function cargar(){ try { return JSON.parse(localStorage.getItem(CLAVE)) || {filas:[], borradas:[]}; } catch(e){ return {filas:[], borradas:[]}; } }
+function guardarLocal(){ try { localStorage.setItem(CLAVE, JSON.stringify(estado)); } catch(e){} }
+function leerPend(){ try { return localStorage.getItem(CLAVE_PEND) === '1'; } catch(e){ return false; } }
+function marcarPend(v){ pendiente = v; try { localStorage.setItem(CLAVE_PEND, v ? '1' : ''); } catch(e){} }
+
+const b64aTexto = b => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\n/g, '')), c => c.charCodeAt(0)));
+function textoAb64(s){ const by = new TextEncoder().encode(s); let bin = ''; for (let i = 0; i < by.length; i += 0x8000) bin += String.fromCharCode(...by.subarray(i, i + 0x8000)); return btoa(bin); }
+const cabeceras = () => ({Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json'});
+
+async function leerNube(){
+  const r = await fetch(API + '?t=' + Date.now(), {headers:cabeceras(), cache:'no-store'});
+  if (!r.ok) throw new Error('lectura ' + r.status);
+  const j = await r.json();
+  const d = JSON.parse(b64aTexto(j.content)); d.filas = d.filas || []; d.borradas = d.borradas || [];
+  return {datos:d, sha:j.sha};
+}
+// Fila a fila, gana la más reciente (mod); un borrado en cualquier lado se respeta
+function mezclar(nube, local){
+  const borradas = [...new Set([...nube.borradas, ...(local.borradas || [])])];
+  const porId = new Map(nube.filas.map(f => [f.id, f]));
+  for (const f of local.filas || []){ const n = porId.get(f.id); if (!n || (f.mod || 0) > (n.mod || 0)) porId.set(f.id, f); }
+  const orden = nube.filas.map(f => f.id);
+  const filas = [...porId.values()].filter(f => !borradas.includes(f.id))
+    .sort((a, b) => (orden.indexOf(a.id) + 1 || 1e9) - (orden.indexOf(b.id) + 1 || 1e9));
+  return {...nube, filas, borradas};
+}
+function localGana(nube, local){
+  const porId = new Map(nube.filas.map(f => [f.id, f]));
+  if ((local.borradas || []).some(id => !nube.borradas.includes(id))) return true;
+  return (local.filas || []).some(f => !nube.borradas.includes(f.id) && (!porId.get(f.id) || (f.mod || 0) > (porId.get(f.id).mod || 0)));
+}
+async function sincronizar(){
+  if (sincronizando){ otraVez = true; return; }
+  if (!token){ avisoNube(); return; }
+  if (document.activeElement && document.activeElement.isContentEditable){ otraVez = true; return; }
+  sincronizando = true; avisoNube('…');
+  try {
+    for (let i = 0; i < 4; i++){
+      const {datos, sha} = await leerNube();
+      if (localGana(datos, estado)) marcarPend(true);
+      estado = mezclar(datos, estado); guardarLocal();
+      if (!pendiente) break;
+      const r = await fetch(API, {method:'PUT', headers:cabeceras(), body:JSON.stringify({message:'im-grupos: cambios desde la web', sha, content:textoAb64(JSON.stringify(estado, null, 1))})});
+      if (r.ok){ marcarPend(false); break; }
+      if (r.status !== 409 && r.status !== 422) throw new Error('escritura ' + r.status);
+    }
+    avisoNube(pendiente ? 'error' : 'ok'); pintar();
+  } catch(err){ console.error(err); avisoNube(String(err).includes('401') ? 'token' : 'error'); }
+  finally { sincronizando = false; if (otraVez){ otraVez = false; setTimeout(sincronizar, 400); } }
+}
+function guardar(){ guardarLocal(); marcarPend(true); clearTimeout(temporizador); temporizador = setTimeout(sincronizar, 800); }
+function avisoNube(s){
+  $('#nube').textContent = !token ? '☁ Conectar' : s === 'ok' ? '☁ Al día' : s === 'error' ? '☁ Sin conexión (reintentar)' : s === 'token' ? '☁ Token no válido' : '☁ Sincronizando…';
+}
+
+function visibles(){
+  const q = $('#buscar').value.trim().toLowerCase(), f = $('#filtro').value;
+  return estado.filas.filter(r => {
+    if (q && !COLS.some(c => String(r[c.k] ?? '').toLowerCase().includes(q))) return false;
+    if (f === 'sin') return r.vinculado !== 'sí' && !r.whatsapp;
+    if (f === 'con') return r.vinculado === 'sí' || !!r.whatsapp;
+    if (f === 'tu') return r.tu === 'sí';
+    if (f === 'sinenlace') return r.vinculado === 'sí' && r.enlace !== 'sí';
+    if (f === 'pend') return (+r.pendientes || 0) > 0;
+    return true;
+  }).sort((a, b) => {
+    const c = COLS.find(c => c.k === orden.k);
+    const x = c.num ? (+a[c.k] || 0) : String(a[c.k] ?? '').toLowerCase(), y = c.num ? (+b[c.k] || 0) : String(b[c.k] ?? '').toLowerCase();
+    return (x < y ? -1 : x > y ? 1 : 0) * (orden.inv ? -1 : 1) || String(a.grupo).localeCompare(String(b.grupo), 'es', {numeric:true});
+  });
+}
+function pintarCabecera(){
+  $('#cabecera').innerHTML = COLS.map(c => `<th data-k="${c.k}" class="${orden.k === c.k ? 'orden' + (orden.inv ? ' inv' : '') : ''}">${c.t}</th>`).join('') + '<th></th>';
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function pintar(){
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#cuerpo')) return;
+  pintarCabecera();
+  const filas = visibles();
+  $('#cuerpo').innerHTML = filas.map(r => `<tr data-id="${esc(r.id)}">` + COLS.map(c => c.sino
+    ? `<td><select data-k="${c.k}" class="${r[c.k] === 'sí' ? 'si' : r[c.k] === 'no' ? 'no' : ''}">${SINO.map(v => `<option${v === (r[c.k] || '') ? ' selected' : ''}>${v}</option>`).join('')}</select></td>`
+    : `<td class="${c.num ? 'num' : ''}"><div contenteditable="plaintext-only" data-k="${c.k}">${esc(r[c.k])}</div></td>`).join('')
+    + `<td class="borrar"><button title="Borrar fila" data-borrar>✕</button></td></tr>`).join('');
+  const t = estado.filas;
+  const con = t.filter(r => r.vinculado === 'sí').length, tu = t.filter(r => r.tu === 'sí').length;
+  const pend = t.reduce((s, r) => s + (+r.pendientes || 0), 0), sinEnl = t.filter(r => r.vinculado === 'sí' && r.enlace !== 'sí').length;
+  $('#resumen').innerHTML = `<b>${t.length}</b> grupos · <b>${con}</b> con WhatsApp vinculado · <b>${t.length - con}</b> sin · estás en <b>${tu}</b> · <b>${sinEnl}</b> vinculados sin enlace · <b>${pend}</b> personas por invitar`
+    + (estado.actualizado ? ` · datos de la app del ${estado.actualizado.split('-').reverse().join('/')}` : '') + (filas.length !== t.length ? ` · mostrando ${filas.length}` : '');
+}
+function fila(el){ const id = el.closest('tr').dataset.id; return estado.filas.find(f => f.id === id); }
+$('#cuerpo').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (!k) return;
+  const r = fila(e.target), c = COLS.find(c => c.k === k);
+  let v = e.target.isContentEditable ? e.target.textContent.trim() : e.target.value;
+  if (c.num) v = v === '' ? '' : (Number(v.replace(',', '.')) || 0);
+  r[k] = v; r.mod = Date.now(); e.target.closest('tr').classList.add('cambiada');
+  if (c.sino) e.target.className = v === 'sí' ? 'si' : v === 'no' ? 'no' : '';
+  guardar();
+});
+$('#cuerpo').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.isContentEditable){ e.preventDefault(); e.target.blur(); } });
+$('#cuerpo').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement.isContentEditable){ if (otraVez || pendiente) sincronizar(); } }, 50));
+$('#cuerpo').addEventListener('click', e => {
+  if (!e.target.matches('[data-borrar]')) return;
+  const r = fila(e.target);
+  if (!confirm(`¿Borrar la fila «${r.programa} ${r.grupo}»?`)) return;
+  estado.filas = estado.filas.filter(f => f !== r); estado.borradas = [...(estado.borradas || []), r.id];
+  guardar(); pintar();
+});
+$('#cabecera').addEventListener('click', e => { const k = e.target.dataset.k; if (!k) return; orden = {k, inv: orden.k === k ? !orden.inv : false}; pintar(); });
+$('#buscar').addEventListener('input', pintar);
+$('#filtro').addEventListener('change', pintar);
+$('#nueva').addEventListener('click', () => {
+  const r = {id:'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), mod:Date.now(), programa:'', grupo:'', horario:'', inscritos:'', whatsapp:'', vinculado:'', enlace:'', pendientes:'', tu:'', responsable:'', notas:''};
+  estado.filas.unshift(r); $('#buscar').value = ''; $('#filtro').value = ''; orden = {k:'programa', inv:false};
+  pintar();   // programa vacío: la fila nueva sale la primera
+  guardar(); const el = document.querySelector(`tr[data-id="${r.id}"] [contenteditable]`); el && el.focus();
+});
+$('#nube').addEventListener('click', () => token && !String($('#nube').textContent).includes('Token') ? sincronizar() : ($('#velo').classList.add('abierto'), $('#token').focus()));
+$('#cerrarVelo').addEventListener('click', () => $('#velo').classList.remove('abierto'));
+$('#guardarToken').addEventListener('click', () => {
+  token = $('#token').value.trim(); try { localStorage.setItem(CLAVE_TOKEN, token); } catch(e){}
+  $('#velo').classList.remove('abierto'); sincronizar();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && pendiente) sincronizar(); else if (!document.hidden) sincronizar(); });
+setInterval(sincronizar, 60000);
+pintar(); avisoNube(); if (token) sincronizar(); else $('#velo').classList.add('abierto');
+</script>
+</body>
+</html>
